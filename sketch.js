@@ -1,4 +1,4 @@
-let defualt_color = "hsb(0, 0%, 100%)";
+let defualt_color = "rgb(49,116,144)";
 
 let blob_fill_color;
 let blob_stroke_color;
@@ -12,17 +12,127 @@ var applyForce =
   (distance = 10, strength = 1.0) =>
   (particle, particles) => {
     particles.forEach((p) => {
-      let dx = p.x - particle.x;
-      let dy = p.y - particle.y;
-      let d = dx * dx + dy * dy;
-      dx /= d + 0.1;
-      dy /= d + 0.1;
-      if (d < distance * distance) {
-        particle.vx -= dx * strength;
-        particle.vy -= dy * strength;
+      if (p != particle) {
+        let dx = p.x - particle.x;
+        let dy = p.y - particle.y;
+        let d = dx * dx + dy * dy;
+        dx /= d + 0.1;
+        dy /= d + 0.1;
+        if (d < distance * distance) {
+          particle.vx -= dx * strength;
+          particle.vy -= dy * strength;
+        }
       }
     });
   };
+
+var applyAlignment =
+  (distance = 10, strength = 1.0) =>
+  (particle, particles) => {
+    let AvgVx = 0;
+    let AvgVy = 0;
+    let count = 0;
+    particles.forEach((p) => {
+      if (p != particle) {
+        let dx = p.x - particle.x;
+        let dy = p.y - particle.y;
+        let d = dx * dx + dy * dy;
+        if (d < distance * distance) {
+          AvgVx += p.vx;
+          AvgVy += p.vy;
+          count++;
+        }
+      }
+    });
+    if (count == 0) {
+      return;
+    }
+    AvgVx /= count;
+    AvgVy /= count;
+    const DVx = AvgVx - particle.vx;
+    const DVy = AvgVy - particle.vy;
+    particle.vx += DVx * strength;
+    particle.vy += DVy * strength;
+  };
+
+var applyCohesion =
+  (distance = 10, strength = 1.0) =>
+  (particle, particles) => {
+    let AvgX = 0;
+    let AvgY = 0;
+    let count = 0;
+    particles.forEach((p) => {
+      if (p != particle) {
+        let dx = p.x - particle.x;
+        let dy = p.y - particle.y;
+        let d = dx * dx + dy * dy;
+        if (d < distance * distance) {
+          AvgX += p.x;
+          AvgY += p.y;
+          count++;
+        }
+      }
+    });
+    if (count == 0) {
+      return;
+    }
+    let DX = AvgX / count;
+    let DY = AvgY / count;
+    DX -= particle.x;
+    DY -= particle.y;
+    particle.vx += DX * strength;
+    particle.vy += DY * strength;
+  };
+
+var applySeparation =
+  (distance = 10, strength = 1.0) =>
+  (particle, particles) => {
+    let close_dx = 0;
+    let close_dy = 0;
+    particles.forEach((p) => {
+      let dx = p.x - particle.x;
+      let dy = p.y - particle.y;
+      let d = dx * dx + dy * dy;
+      if (d < distance * distance) {
+        close_dx += particle.x - p.x;
+        close_dy += particle.y - p.y;
+      }
+    });
+    particle.vx += close_dx * strength;
+    particle.vy += close_dy * strength;
+  };
+
+var applyMinVelocity =
+  (minVel = 1.0) =>
+  (particle) => {
+    let d = particle.vx * particle.vx + particle.vy * particle.vy;
+    d = Math.sqrt(d);
+    particle.vx = (particle.vx / d) * minVel;
+    particle.vy = (particle.vy / d) * minVel;
+  };
+
+var applyScreenBounds = (width, height, padding, turnFactor) => (particle) => {
+  const leftMargin = padding;
+  const rightMargin = width - padding;
+  const topMargin = padding;
+  const bottomMargin = height - padding;
+  if (particle.x < leftMargin) {
+    //particle.x = leftMargin;
+    particle.vx += turnFactor;
+  }
+  if (particle.x > rightMargin) {
+    //particle.x = rightMargin;
+    particle.vx -= turnFactor;
+  }
+  if (particle.y < topMargin) {
+    //particle.y = topMargin;
+    particle.vy += turnFactor;
+  }
+  if (particle.y > bottomMargin) {
+    //particle.y = bottomMargin;
+    particle.vy -= turnFactor;
+  }
+};
 
 var applyVineForce =
   (distance = 10, strength = 1.0) =>
@@ -31,6 +141,9 @@ var applyVineForce =
     let Dy = 0;
     let count = 0;
     particles.forEach((p) => {
+      if (p == particle) {
+        return;
+      }
       let dx = p.x - particle.x;
       let dy = p.y - particle.y;
       let d = dx * dx + dy * dy;
@@ -374,31 +487,44 @@ let physicsWorld;
 
 let focusedIndex;
 
+const spawnFish = (x, y, physicsWorld) => {
+  let fish = new Particle(x, y, "fish", physicsWorld, true);
+  physicsWorld.addParticle(fish);
+};
+
+const spawnFishSchool = (n, physicsWorld) => {
+  for (let i = 0; i < n; i++) {
+    let x = random(width);
+    let y = random(height);
+    spawnFish(x, y, physicsWorld);
+  }
+};
+
 function setup() {
   createCanvas(windowWidth, windowHeight);
   background(100);
   frameRate(244);
 
-  blob_fill_color = color("hsb(354, 59%, 100%)");
-  blob_stroke_color = color("hsb(5, 76%, 98%)");
-  dot1_color = color("hsb(81, 43%, 79%)");
+  blob_fill_color = color(26, 24, 37);
+  blob_stroke_color = color(172, 148, 147);
+  dot1_color = color("#625d7f");
 
   physicsWorld = new PhysicsWorld(50);
 
   physicsWorld.addInteraction(
-    stayInBounds(width, height, 200, 0.1),
-    ["blob"],
-    ["dot"]
+    stayInBounds(width, height, 100, 0.1),
+    ["blob", "dot", "vine"],
+    []
   );
 
   physicsWorld.addInteraction(
-    stayInBounds(width, height, 200, 0.1),
+    stayInBounds(width, height, 100, 0.1),
     ["dot"],
     ["dot"]
   );
 
   physicsWorld.addInteraction(
-    stayInBounds(width, height, 200, 0.1),
+    stayInBounds(width, height, 100, 0.1),
     ["vine"],
     ["dot"]
   );
@@ -456,9 +582,9 @@ function setup() {
     );
   }
 
-  // CreateCoral(random(width), random(height), 100, 30, physicsWorld);
+  CreateCoral(random(width), random(height), 100, 30, physicsWorld);
 
-  //CreateCoral(width / 2 + 300, height / 2 + 300, 300, 120, physicsWorld);
+  CreateCoral(width / 2 + 300, height / 2 + 300, 300, 120, physicsWorld);
 
   physicsWorld.addInteraction(applyVineForce(23, 5), ["vine"], ["vine"]);
 
@@ -470,16 +596,37 @@ function setup() {
 
   physicsWorld.addInteraction(applyForce(80, 0.3), ["dot"], ["vine"]);
 
+  spawnFishSchool(100, physicsWorld);
+
+  physicsWorld.addInteraction(
+    applyForce(20, 0.6),
+    ["fish"],
+    ["vine", "blob", "dot"]
+  );
+  physicsWorld.addInteraction(
+    applyForce(50, 1.3),
+    ["vine", "blob", "dot"],
+    ["fish"]
+  );
+
+  physicsWorld.addInteraction(
+    applyScreenBounds(width, height, 200, 0.05),
+    ["fish"],
+    []
+  );
+  //physicsWorld.addInteraction(applyForce(20, 10.3), ["fish"], ["fish"]);
+  physicsWorld.addInteraction(applySeparation(30, 0.05), ["fish"], ["fish"]);
+  physicsWorld.addInteraction(applyAlignment(100, 0.05), ["fish"], ["fish"]);
+  physicsWorld.addInteraction(applyCohesion(100, 0.0005), ["fish"], ["fish"]);
+  physicsWorld.addInteraction(applyMinVelocity(1.0), ["fish"], ["fish"]);
+
   console.log(physicsWorld.interactions);
 
   physicsWorld.solveGrid();
-
-  console.log("number of particles", physicsWorld.particles.length);
-  console.log("number of springs", physicsWorld.springs.length);
 }
 
 function draw() {
-  background(15, 3, 38);
+  background("#222030");
   noFill();
   strokeWeight(3);
 
