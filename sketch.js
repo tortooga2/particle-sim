@@ -608,7 +608,7 @@ function setup() {
     ["vine", "blob", "dot"],
     ["fish"]
   );
-  physicsWorld.addInteraction(applyForce(200, -0.5), ["fish"], ["vine"]);
+  // physicsWorld.addInteraction(applyForce(200, -0.5), ["fish"], ["vine"]);
 
   physicsWorld.addInteraction(
     applyScreenBounds(width, height, 200, 0.05),
@@ -616,7 +616,7 @@ function setup() {
     []
   );
   //physicsWorld.addInteraction(applyForce(20, 10.3), ["fish"], ["fish"]);
-  physicsWorld.addInteraction(applySeparation(30, 0.01), ["fish"], ["fish"]);
+  physicsWorld.addInteraction(applySeparation(30, 0.005), ["fish"], ["fish"]);
   physicsWorld.addInteraction(applyAlignment(100, 0.05), ["fish"], ["fish"]);
   physicsWorld.addInteraction(applyCohesion(100, 0.0005), ["fish"], ["fish"]);
   physicsWorld.addInteraction(applyMinVelocity(1.0), ["fish"], ["fish"]);
